@@ -56,8 +56,12 @@ func main() {
 	// create auth client
 	userClient := pb.NewUserServiceClient(userServiceConn)
 
+	// dial product client
+	productServiceConn, err := grpc.Dial("product-service:8080", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	productClient := pb.NewProductServiceClient(productServiceConn)
+
 	// create shop service
-	shopService := service.NewShopService(shopQueries, authClient, userClient)
+	shopService := service.NewShopService(shopQueries, authClient, userClient, productClient)
 	// register shop service
 	pb.RegisterShopServiceServer(grpcServer, shopService)
 

@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"strconv"
 
 	"github.com/e-commerce-microservices/shop-service/pb"
 	"github.com/e-commerce-microservices/shop-service/repository"
@@ -19,19 +21,21 @@ type shopRepository interface {
 
 // ShopService ...
 type ShopService struct {
-	shopStore  shopRepository
-	authClient pb.AuthServiceClient
-	userClient pb.UserServiceClient
+	shopStore     shopRepository
+	authClient    pb.AuthServiceClient
+	userClient    pb.UserServiceClient
+	productClient pb.ProductServiceClient
 
 	pb.UnimplementedShopServiceServer
 }
 
 // NewShopService ...
-func NewShopService(shopStore shopRepository, authClient pb.AuthServiceClient, userClient pb.UserServiceClient) *ShopService {
+func NewShopService(shopStore shopRepository, authClient pb.AuthServiceClient, userClient pb.UserServiceClient, productClient pb.ProductServiceClient) *ShopService {
 	service := &ShopService{
-		shopStore:  shopStore,
-		authClient: authClient,
-		userClient: userClient,
+		shopStore:     shopStore,
+		authClient:    authClient,
+		userClient:    userClient,
+		productClient: productClient,
 	}
 
 	return service
@@ -72,8 +76,30 @@ func (srv *ShopService) RegisterShop(ctx context.Context, req *pb.RegisterShopRe
 	}
 
 	return &pb.GeneralResponse{
-		Message: "Register shop successfully, now you are supplier",
+		Message: "Đăng kí thành công, hãy thử bán hàng ngay lập tức",
 	}, nil
+}
+
+var _empty = &emptypb.Empty{}
+
+// AddProduct ...
+func (srv *ShopService) AddProduct(ctx context.Context, req *pb.CreateProductRequest) (*pb.CreateProductResponse, error) {
+	// authorization for supplier or admin
+	md, _ := metadata.FromIncomingContext(ctx)
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	claims, err := srv.authClient.GetUserClaims(ctx, _empty)
+	if err != nil {
+		return nil, err
+	}
+	if claims.GetUserRole() == pb.UserRole_customer {
+		return nil, errors.New("unauthorization request")
+	}
+	supplierID, _ := strconv.ParseInt(claims.Id, 10, 64)
+	req.SupplierId = supplierID
+
+	// add product
+	return srv.productClient.CreateProduct(ctx, req)
 }
 
 // Ping pong

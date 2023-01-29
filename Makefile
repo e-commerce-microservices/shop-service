@@ -13,7 +13,7 @@ migrateforce:
 	migrate -path db/migration -database "${DB_DSN}" -verbose force ${v}
 
 protogen:
-	protoc --proto_path=proto proto/shop_service.proto proto/user_service.proto proto/general.proto proto/auth_service.proto \
+	protoc --proto_path=proto proto/shop_service.proto proto/user_service.proto proto/product_service.proto proto/general.proto proto/auth_service.proto \
 	--go_out=pb --go_opt=paths=source_relative \
 	--go-grpc_out=pb --go-grpc_opt=paths=source_relative
 
@@ -25,7 +25,7 @@ dockerbuild:
 	docker build -t ngoctd/ecommerce-shop:latest .
 
 .PHONY: rebuild
-dockerbp:
+rebuild:
 	docker build -t ngoctd/ecommerce-shop:latest . && \
 	docker push ngoctd/ecommerce-shop
 
