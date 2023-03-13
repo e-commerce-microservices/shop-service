@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log"
 	"strconv"
 
 	"github.com/e-commerce-microservices/shop-service/pb"
@@ -17,6 +18,7 @@ import (
 
 type shopRepository interface {
 	CreateShop(ctx context.Context, arg repository.CreateShopParams) error
+	GetShopByID(ctx context.Context, id int64) (repository.Shop, error)
 }
 
 // ShopService ...
@@ -39,6 +41,80 @@ func NewShopService(shopStore shopRepository, authClient pb.AuthServiceClient, u
 	}
 
 	return service
+}
+
+func (srv *ShopService) GetShop(ctx context.Context, req *pb.GetShopRequest) (*pb.GetShopResponse, error) {
+	shop, err := srv.shopStore.GetShopByID(ctx, req.GetShopId())
+	if err != nil {
+		return &pb.GetShopResponse{
+			Name: "ecommerce official",
+		}, nil
+	}
+
+	return &pb.GetShopResponse{
+		Name: shop.Name,
+	}, nil
+}
+
+func (srv *ShopService) DeleteProduct(ctx context.Context, req *pb.DeleteProductRequest) (*pb.DeleteProductResponse, error) {
+	// auth
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "can't parse context")
+	}
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	me, err := srv.userClient.GetMe(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = srv.productClient.DeleteProduct(ctx, &pb.DeleteProductRequest{
+		ProductId:  req.ProductId,
+		SupplierId: me.Id,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.DeleteProductResponse{
+		Message: "Xóa sản phẩm thành công",
+	}, nil
+}
+
+// UpdateProduct ...
+func (srv *ShopService) UpdateProduct(ctx context.Context, req *pb.UpdateProductRequest) (*pb.GeneralResponse, error) {
+	// auth
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "can't parse context")
+	}
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	me, err := srv.userClient.GetMe(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	log.Println("update product: ", req)
+	_, err = srv.productClient.UpdateProduct(ctx, &pb.UpdateProductRequest{
+		ProductId:  req.ProductId,
+		Name:       req.Name,
+		Price:      req.Price,
+		Thumbnail:  req.Thumbnail,
+		Inventory:  req.Inventory,
+		Brand:      req.Brand,
+		SupplierId: me.Id,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.GeneralResponse{
+		Message:    "Cập nhật sản phẩm thành công",
+		StatusCode: 0,
+	}, nil
 }
 
 // RegisterShop ...
