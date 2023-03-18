@@ -26,11 +26,11 @@ func (q *Queries) CreateShop(ctx context.Context, arg CreateShopParams) error {
 }
 
 const getShopByID = `-- name: GetShopByID :one
-SELECT id, seller_id, name, avatar, created_at FROM shop WHERE "id" = $1
+SELECT id, seller_id, name, avatar, created_at FROM shop WHERE "seller_id" = $1
 `
 
-func (q *Queries) GetShopByID(ctx context.Context, id int64) (Shop, error) {
-	row := q.db.QueryRowContext(ctx, getShopByID, id)
+func (q *Queries) GetShopByID(ctx context.Context, sellerID int64) (Shop, error) {
+	row := q.db.QueryRowContext(ctx, getShopByID, sellerID)
 	var i Shop
 	err := row.Scan(
 		&i.ID,
@@ -40,4 +40,20 @@ func (q *Queries) GetShopByID(ctx context.Context, id int64) (Shop, error) {
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const updateShopName = `-- name: UpdateShopName :exec
+UPDATE "shop"
+SET "name" = $1
+WHERE "seller_id" = $2
+`
+
+type UpdateShopNameParams struct {
+	Name     string
+	SellerID int64
+}
+
+func (q *Queries) UpdateShopName(ctx context.Context, arg UpdateShopNameParams) error {
+	_, err := q.db.ExecContext(ctx, updateShopName, arg.Name, arg.SellerID)
+	return err
 }

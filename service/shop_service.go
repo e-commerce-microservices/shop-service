@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"strconv"
 
@@ -23,7 +24,7 @@ type shopRepository interface {
 
 // ShopService ...
 type ShopService struct {
-	shopStore     shopRepository
+	shopStore     *repository.Queries
 	authClient    pb.AuthServiceClient
 	userClient    pb.UserServiceClient
 	productClient pb.ProductServiceClient
@@ -32,7 +33,7 @@ type ShopService struct {
 }
 
 // NewShopService ...
-func NewShopService(shopStore shopRepository, authClient pb.AuthServiceClient, userClient pb.UserServiceClient, productClient pb.ProductServiceClient) *ShopService {
+func NewShopService(shopStore *repository.Queries, authClient pb.AuthServiceClient, userClient pb.UserServiceClient, productClient pb.ProductServiceClient) *ShopService {
 	service := &ShopService{
 		shopStore:     shopStore,
 		authClient:    authClient,
@@ -41,6 +42,36 @@ func NewShopService(shopStore shopRepository, authClient pb.AuthServiceClient, u
 	}
 
 	return service
+}
+
+// UpdateShopName ...
+func (srv *ShopService) UpdateShopName(ctx context.Context, req *pb.UpdateShopNameRequest) (*pb.GetShopResponse, error) {
+	if len(req.GetName()) == 0 {
+		return nil, errors.New("Vui lòng điền tên cửa hàng")
+	}
+	// auth
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "can't parse context")
+	}
+	ctx = metadata.NewOutgoingContext(ctx, md)
+
+	me, err := srv.userClient.GetMe(ctx, &emptypb.Empty{})
+	if err != nil {
+		return nil, err
+	}
+
+	err = srv.shopStore.UpdateShopName(ctx, repository.UpdateShopNameParams{
+		Name:     req.GetName(),
+		SellerID: me.Id,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Cập nhật thất bại do %v", err)
+	}
+
+	return &pb.GetShopResponse{
+		Name: "Cập nhật tên cửa hàng thành công",
+	}, nil
 }
 
 func (srv *ShopService) GetShop(ctx context.Context, req *pb.GetShopRequest) (*pb.GetShopResponse, error) {
